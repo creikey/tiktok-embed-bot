@@ -1,0 +1,2 @@
+python-telegram-bot==12.8
+urlextract==1.0.0
