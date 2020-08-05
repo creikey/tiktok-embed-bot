@@ -1,0 +1,3 @@
+[submodule "src/youtube-dl-1"]
+	path = src/youtube-dl-1
+	url = git@github.com:creikey/youtube-dl-1.git
