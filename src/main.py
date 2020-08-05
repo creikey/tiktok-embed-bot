@@ -53,8 +53,12 @@ def download(update, context):
     url_extractor = URLExtract()
     urls = url_extractor.find_urls(update.message.text)
     if len(urls) == 0:
-        urls = url_extractor.find_urls(update.message.reply_to_message.text)
-        if len(urls) == 0:
+        err = False
+        if update.message.reply_to_message == None:
+            err = True
+        else:
+            urls = url_extractor.find_urls(update.message.reply_to_message.text)
+        if err or len(urls) == 0:
             update.message.reply_text("Must either reply to a tiktok url or tell me a url")
             return
     url = urls[0]
