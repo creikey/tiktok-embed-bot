@@ -9,6 +9,7 @@ import youtube_dl
 import shutil
 from urlextract import URLExtract
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+# import telegram.ext.filters.Filters
 from telegram import ChatAction
 from functools import wraps
 
@@ -17,26 +18,31 @@ MAX_VID_LENGTH = 500
 
 cur_file_counter = 0
 
-def send_action(action):
-    """Sends `action` while processing func command."""
 
-    def decorator(func):
-        @wraps(func)
-        def command_func(update, context, *args, **kwargs):
-            context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=action)
-            return func(update, context,  *args, **kwargs)
-        return command_func
-    
-    return decorator
-send_video_action = send_action(ChatAction.UPLOAD_VIDEO)
+# def send_action(action):
+#     """Sends `action` while processing func command."""
+
+#     def decorator(func):
+#         @wraps(func)
+#         def command_func(update, context, *args, **kwargs):
+#             context.bot.send_chat_action(
+#                 chat_id=update.effective_message.chat_id, action=action
+#             )
+#             return func(update, context, *args, **kwargs)
+
+#         return command_func
+
+#     return decorator
+
+
+# send_video_action = send_action(ChatAction.UPLOAD_VIDEO)
+
 
 def download_to_file(url: str, filename: str) -> int:
-    ydl_opts = {
-        "quiet": True
-    }
+    ydl_opts = {"quiet": True}
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         video_info = ydl.extract_info(url, download=True)
-    
+
     if video_info["duration"] > MAX_VID_LENGTH:
         return 99999
 
@@ -47,9 +53,10 @@ def download_to_file(url: str, filename: str) -> int:
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         return ydl.download([url])
 
-@send_video_action
 def download(update, context):
     global cur_file_counter
+    if not ("https://vm.tiktok.com/" in update.message.text or "https://www.tiktok.com/" in update.message.text):
+        return
     url_extractor = URLExtract()
     urls = url_extractor.find_urls(update.message.text)
     if len(urls) == 0:
@@ -59,20 +66,31 @@ def download(update, context):
         else:
             urls = url_extractor.find_urls(update.message.reply_to_message.text)
         if err or len(urls) == 0:
-            update.message.reply_text("Must either reply to a tiktok url or tell me a url")
+            update.message.reply_text(
+                "Must either reply to a tiktok url or tell me a url"
+            )
             return
     url = urls[0]
     filename = f"{cur_file_counter}.mp4"
     logging.debug(f"Downloading from {url}...")
-    
+    context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=ChatAction.UPLOAD_VIDEO)
+
     err = download_to_file(url, filename)
     if err == 0:
         cur_file_counter += 1
         update.message.reply_video(open(filename, "rb"), supports_streaming=True)
     elif err == 99999:
-        update.message.reply_text(f"Video is too long, must be shorter than {MAX_VID_LENGTH} seconds")
+        update.message.reply_text(
+            f"Video is too long, must be shorter than {MAX_VID_LENGTH} seconds"
+        )
     else:
-        update.message.reply_text(f"Could not download, error {err} . Video has to be shorter than 500 seconds. Tell @creikey")
+        update.message.reply_text(
+            f"Could not download, error {err} . Video has to be shorter than {MAX_VID_LENGTH} seconds. Tell @creikey"
+        )
+
+# class ToDownloadFilter(MessageFilter):
+#     def filter(message):
+#         return "https://vm.tiktok.com/" in message or "https://www.tiktok.com/" in message
 
 
 def main():
@@ -83,7 +101,8 @@ def main():
     os.mkdir(DOWNLOADS_DIR)
     os.chdir(DOWNLOADS_DIR)
     dp = updater.dispatcher
-    dp.add_handler(CommandHandler("download", download))
+    dp.add_handler(MessageHandler(callback=download, filters=Filters.text))
+    # dp.add_handler(CommandHandler("download", download))
 
     updater.start_polling()
 
